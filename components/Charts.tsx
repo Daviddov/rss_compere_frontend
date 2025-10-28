@@ -12,12 +12,37 @@ interface ChartsProps {
 const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#06b6d4'];
 
 export default function Charts({ sourceData }: ChartsProps) {
-  // נתונים לגרף עמודות
+  // נתונים לגרף עמודות סטנדרטי
   const barData = sourceData.map(s => ({
     name: s.source,
     'סה"כ כתבות': s.total,
     'נבדקו': s.checked,
     'התאמות': s.matches,
+  }));
+
+  // נתונים לגרף אחוזי ראשוניות ואיכות
+  const rateData = sourceData.map(s => ({
+    name: s.source,
+    // מדד: אחוז ראשוניות (מהירות)
+    'אחוז ראשוניות (מהירות)': s.matches > 0 
+      ? Math.round((s.firstPublishedCount / s.matches) * 100)
+      : 0,
+    // מדד: אחוז איכות (טובה יותר)
+    'אחוז "טובה יותר"': s.matches > 0 
+      ? Math.round((s.betterArticleCount / s.matches) * 100)
+      : 0,
+  }));
+  
+  // נתונים לגרף איחור חציוני
+  const medianDelayData = sourceData.map(s => ({
+    name: s.source,
+    'איחור חציוני (דקות)': s.medianDelayMinutes,
+  }));
+  
+  // נתונים לגרף אורך כתבה ממוצע (עומק)
+  const lengthData = sourceData.map(s => ({
+    name: s.source,
+    'אורך כתבה ממוצע (מילים)': s.averageContentWords,
   }));
 
   // נתונים לגרף עוגה
@@ -26,16 +51,69 @@ export default function Charts({ sourceData }: ChartsProps) {
     value: s.total,
   }));
 
-  // נתונים לגרף קווים
-  const lineData = sourceData.map(s => ({
-    name: s.source,
-    'אחוז בדיקה': s.total > 0 ? Math.round((s.checked / s.total) * 100) : 0,
-    'אחוז התאמות': s.checked > 0 ? Math.round((s.matches / s.checked) * 100) : 0,
-  }));
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {/* גרף עמודות - סטטיסטיקות לפי מקור */}
+      
+      {/* 1. גרף אחוזי ראשוניות ואיכות */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 lg:col-span-2">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">אחוזי ראשוניות (מהירות) ואיכות לפי מקור</h3>
+        <ResponsiveContainer width="100%" height={300}>
+          <LineChart data={rateData}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="name" />
+            <YAxis unit="%" domain={[0, 100]}/>
+            <Tooltip />
+            <Legend />
+            <Line 
+              type="monotone" 
+              dataKey="אחוז ראשוניות (מהירות)" 
+              stroke="#3b82f6" 
+              strokeWidth={2}
+              dot={{ r: 5 }}
+            />
+            <Line 
+              type="monotone" 
+              dataKey='אחוז "טובה יותר"' 
+              stroke="#f59e0b" 
+              strokeWidth={2}
+              dot={{ r: 5 }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+      
+      {/* 2. גרף איחור חציוני (דקות) */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">איחור חציוני (דקות)</h3>
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={medianDelayData}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="name" />
+            <YAxis label={{ value: 'דקות', angle: -90, position: 'insideLeft' }} />
+            <Tooltip />
+            <Legend />
+            <Bar dataKey='איחור חציוני (דקות)' fill="#ef4444" />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* 3. גרף אורך כתבה ממוצע (עומק) */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">אורך כתבה ממוצע (מילים)</h3>
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={lengthData}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="name" />
+            <YAxis label={{ value: 'מילים', angle: -90, position: 'insideLeft' }} />
+            <Tooltip />
+            <Legend />
+            <Bar dataKey='אורך כתבה ממוצע (מילים)' fill="#10b981" />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+      
+      {/* 4. גרף עמודות - סטטיסטיקות כלליות */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">סטטיסטיקות לפי מקור</h3>
         <ResponsiveContainer width="100%" height={300}>
@@ -52,7 +130,7 @@ export default function Charts({ sourceData }: ChartsProps) {
         </ResponsiveContainer>
       </div>
 
-      {/* גרף עוגה - התפלגות כתבות */}
+      {/* 5. גרף עוגה - התפלגות כתבות */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">התפלגות כתבות לפי מקור</h3>
         <ResponsiveContainer width="100%" height={300}>
@@ -73,34 +151,6 @@ export default function Charts({ sourceData }: ChartsProps) {
             </Pie>
             <Tooltip />
           </PieChart>
-        </ResponsiveContainer>
-      </div>
-
-      {/* גרף קווים - אחוזים */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 lg:col-span-2">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">אחוזי בדיקה והתאמות</h3>
-        <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={lineData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="name" />
-            <YAxis />
-            <Tooltip />
-            <Legend />
-            <Line 
-              type="monotone" 
-              dataKey="אחוז בדיקה" 
-              stroke="#3b82f6" 
-              strokeWidth={2}
-              dot={{ r: 5 }}
-            />
-            <Line 
-              type="monotone" 
-              dataKey="אחוז התאמות" 
-              stroke="#10b981" 
-              strokeWidth={2}
-              dot={{ r: 5 }}
-            />
-          </LineChart>
         </ResponsiveContainer>
       </div>
     </div>

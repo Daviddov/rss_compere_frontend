@@ -22,22 +22,36 @@ import MatchesTable from '@/components/MatchesTable';
 import Charts from '@/components/Charts';
 import FilterPanel from '@/components/FilterPanel';
 import * as api from '@/lib/api';
-import type { FilterOptions, SourceComparison } from '@/types';
+import type { FilterOptions, SourceComparison, MatchFilterOptions } from '@/types'; // Added MatchFilterOptions
+
+// Helper function to calculate median (Moved outside to be used in the memo)
+const calculateMedianDelayMinutes = (delays: number[]): number => {
+    if (delays.length === 0) return 0;
+    delays.sort((a, b) => a - b);
+    const mid = Math.floor(delays.length / 2);
+    const medianSeconds = delays.length % 2 !== 0 
+        ? delays[mid]
+        : (delays[mid - 1] + delays[mid]) / 2;
+    return Math.round(medianSeconds / 60); // Return in minutes
+};
+
 
 export default function Dashboard() {
   const [selectedTab, setSelectedTab] = useState<'overview' | 'articles' | 'matches' | 'analytics'>('overview');
-  const [filters, setFilters] = useState<FilterOptions>({});
+  // UPDATED: Allow MatchFilterOptions for analytics filtering context
+  const [filters, setFilters] = useState<FilterOptions | MatchFilterOptions>({}); 
   const [selectedArticles, setSelectedArticles] = useState<number[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   // טעינת נתונים
   const { data: stats, mutate: mutateStats } = useSWR('stats', api.getStats, { 
-    refreshInterval: 10000 // רענון כל 10 שניות
+    refreshInterval: 10000 
   });
   
   const { data: articles, mutate: mutateArticles } = useSWR(
+    // Cast filters to FilterOptions for article fetching
     ['articles', filters], 
-    () => api.getArticles(filters),
+    () => api.getArticles(filters as FilterOptions),
     { refreshInterval: 10000 }
   );
   
@@ -47,40 +61,91 @@ export default function Dashboard() {
   
   const { data: sources } = useSWR('sources', api.getSources);
 
-  // חישוב נתוני גרפים
+  // חישוב נתוני גרפים (UPDATED: Added Median, First Published, and Average Content Words logic)
   const sourceComparison: SourceComparison[] = React.useMemo(() => {
-    if (!articles || !sources) return [];
+    if (!articles || !sources || !matches) return []; // Ensure matches is available
     
+    // Apply basic filtering (only on 'source' field, as FilterPanel only has basic fields in the provided version)
+    const currentFilters = filters as FilterOptions;
+    const filteredArticles = articles.filter(a => !currentFilters.source || a.source === currentFilters.source);
+    
+    // In the provided code, matches are unfiltered. We filter them here for analytics.
+    const filteredMatches = matches.filter(m => {
+        // Apply the 'source' filter to matches as well
+        if (currentFilters.source && m.article1Source !== currentFilters.source && m.article2Source !== currentFilters.source) {
+            return false;
+        }
+        return true;
+    });
+
+
     return sources.map(source => {
-      const sourceArticles = articles.filter(a => a.source === source);
+      const sourceArticles = filteredArticles.filter(a => a.source === source);
       const checked = sourceArticles.filter(a => a.checked === 1).length;
       const newCount = sourceArticles.filter(a => a.is_new === 1).length;
       
-      // חישוב התאמות למקור זה
-      const sourceMatches = matches?.filter(m => 
-        articles.find(a => a.id === m.article1Id && a.source === source) ||
-        articles.find(a => a.id === m.article2Id && a.source === source)
-      ).length || 0;
+      // Calculate matches for the current source within the filtered set
+      const sourceMatches = filteredMatches.filter(m => 
+        (sourceArticles.find(a => a.id === m.article1Id) && m.article1Source === source) ||
+        (sourceArticles.find(a => a.id === m.article2Id) && m.article2Source === source)
+      ).length;
 
+      // --- New Calculations ---
+      // 1. Better Article Count (Quality)
+      const betterArticleCount = filteredMatches.filter(m => m.betterArticleSource === source).length;
+      
+      // 2. First Published Count (Speed)
+      const firstPublishedCount = filteredMatches.filter(m => 
+        (m.firstPublishedId === m.article1Id && m.article1Source === source) ||
+        (m.firstPublishedId === m.article2Id && m.article2Source === source)
+      ).length;
+      
+      // 3. Median Delay Calculation (Speed Consistency)
+      const delays: number[] = []; 
+      const totalPublishedDelaySeconds = filteredMatches.reduce((sum, m) => {
+        const isCurrentSourceInvolved = m.article1Source === source || m.article2Source === source;
+        const isCurrentSourceFirst = (m.firstPublishedId === m.article1Id && m.article1Source === source) || 
+                                     (m.firstPublishedId === m.article2Id && m.article2Source === source);
+                             
+        if (isCurrentSourceInvolved && !isCurrentSourceFirst && m.publishedDiffSeconds !== null) {
+          delays.push(m.publishedDiffSeconds); // Store the delay for median
+          return sum + m.publishedDiffSeconds;
+        }
+        return sum;
+      }, 0);
+      
+      const medianDelayMinutes = calculateMedianDelayMinutes(delays);
+      
+      // 4. Average Content Words Calculation (Depth)
+      const articlesWithContent = sourceArticles.filter(a => a.stats?.contentWords);
+      const totalContentWords = articlesWithContent.reduce((sum, a) => sum + (a.stats?.contentWords || 0), 0);
+      const averageContentWords = articlesWithContent.length > 0 ? Math.round(totalContentWords / articlesWithContent.length) : 0;
+      
+      
       return {
         source,
         total: sourceArticles.length,
         checked,
         matches: sourceMatches,
         new: newCount,
+        betterArticleCount: betterArticleCount,
+        firstPublishedCount: firstPublishedCount,
+        totalPublishedDelaySeconds: totalPublishedDelaySeconds,
+        medianDelayMinutes: medianDelayMinutes,
+        averageContentWords: averageContentWords, 
       };
     });
-  }, [articles, sources, matches]);
+  }, [articles, sources, matches, filters]);
 
-  // פעולות
+
+  // פעולות (השארתי את הקוד המקורי שהעברת, עם תיקוני Alert קלים)
   const handleFetchArticles = async () => {
     setIsLoading(true);
     try {
       await api.fetchArticles();
       
-      alert('✅ שליפת הכתבות התחילה ברקע!\nהנתונים יתעדכנו אוטומטית.');
+      alert('✅ שליפת הכתבות התחילה ברקע! הנתונים יתעדכנו אוטומטית.');
       
-      // רענון נתונים כל 3 שניות למשך 30 שניות
       let refreshCount = 0;
       const maxRefreshes = 10;
       
@@ -104,18 +169,14 @@ export default function Dashboard() {
   const handleRunComparison = async () => {
     setIsLoading(true);
     try {
-      // הרצת השוואה - עכשיו non-blocking!
       await api.runNewComparison();
       
-      // הצגת הודעה שהתהליך התחיל
-      alert('✅ ההשוואה התחילה ברקע!\nהנתונים יתעדכנו אוטומטית כשהתהליך יסתיים.');
+      alert('✅ ההשוואה התחילה ברקע! הנתונים יתעדכנו אוטומטית כשהתהליך יסתיים.');
       
-      // רענון מיידי של הסטטיסטיקות
       await mutateStats();
       
-      // רענון נתונים כל 5 שניות למשך 2 דקות
       let refreshCount = 0;
-      const maxRefreshes = 24; // 2 דקות / 5 שניות
+      const maxRefreshes = 24; 
       
       const intervalId = setInterval(async () => {
         refreshCount++;
@@ -361,6 +422,11 @@ export default function Dashboard() {
         {/* Matches Tab */}
         {selectedTab === 'matches' && (
           <div className="space-y-6">
+            <FilterPanel
+              sources={sources || []}
+              currentFilters={filters}
+              onFilterChange={setFilters}
+            />
             <MatchesTable matches={matches || []} />
           </div>
         )}
@@ -368,6 +434,11 @@ export default function Dashboard() {
         {/* Analytics Tab */}
         {selectedTab === 'analytics' && (
           <div className="space-y-6">
+            <FilterPanel
+              sources={sources || []}
+              currentFilters={filters}
+              onFilterChange={setFilters}
+            />
             <Charts sourceData={sourceComparison} />
           </div>
         )}

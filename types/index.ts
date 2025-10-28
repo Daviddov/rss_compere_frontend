@@ -56,6 +56,12 @@ export interface ComparisonResult {
   totalMatches: number;
 }
 
+// ** NEW: Match specific filters (Added for future SWR filtering capability)
+export interface MatchFilterOptions extends FilterOptions {
+  betterSource?: string;
+  onlyReasonProvided?: boolean;
+}
+
 export interface FilterOptions {
   source?: string;
   onlyNew?: boolean;
@@ -84,4 +90,10 @@ export interface SourceComparison {
   checked: number;
   matches: number;
   new: number;
+  // ** ADDED: Fields for advanced comparison and length **
+  betterArticleCount: number; 
+  firstPublishedCount: number; 
+  totalPublishedDelaySeconds: number; 
+  medianDelayMinutes: number; 
+  averageContentWords: number; // For article length comparison
 }
