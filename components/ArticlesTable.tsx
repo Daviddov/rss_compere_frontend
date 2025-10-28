@@ -79,6 +79,9 @@ export default function ArticlesTable({ articles, onSelect, selectable = false }
                 תאריך פרסום
               </th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                אורך
+              </th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                 סטטוס
               </th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -122,6 +125,30 @@ export default function ArticlesTable({ articles, onSelect, selectable = false }
                     </div>
                   ) : (
                     <span className="text-gray-400">-</span>
+                  )}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                  {article.stats ? (
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-1 text-xs">
+                        <span className="font-medium">כותרת:</span>
+                        <span>{article.stats.titleWords}מ / {article.stats.titleChars}ת</span>
+                      </div>
+                      {article.stats.summaryWords > 0 && (
+                        <div className="flex items-center gap-1 text-xs">
+                          <span className="font-medium">תקציר:</span>
+                          <span>{article.stats.summaryWords}מ / {article.stats.summaryChars}ת</span>
+                        </div>
+                      )}
+                      {article.stats.contentWords > 0 && (
+                        <div className="flex items-center gap-1 text-xs">
+                          <span className="font-medium">תוכן:</span>
+                          <span>{article.stats.contentWords}מ / {article.stats.contentChars}ת</span>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-gray-400 text-xs">-</span>
                   )}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">

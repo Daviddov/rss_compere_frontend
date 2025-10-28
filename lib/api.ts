@@ -3,7 +3,6 @@ import axios from 'axios';
 import type { Article, Match, SystemStats, ComparisonResult, FilterOptions } from '@/types';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-console.log("API_URL",API_URL);
 
 const api = axios.create({
   baseURL: `${API_URL}/api`,
@@ -30,7 +29,21 @@ export const getArticles = async (filters?: FilterOptions): Promise<Article[]> =
   if (filters?.limit) params.append('limit', String(filters.limit));
   
   const { data } = await api.get(`/articles?${params.toString()}`);
-  return data.articles;
+  
+  // Add stats calculation on client side if not provided by backend
+  return data.articles.map((article: Article) => {
+    if (!article.stats) {
+      article.stats = {
+        titleWords: article.title.split(/\s+/).length,
+        titleChars: article.title.length,
+        summaryWords: article.summary?.split(/\s+/).length || 0,
+        summaryChars: article.summary?.length || 0,
+        contentWords: article.content?.split(/\s+/).length || 0,
+        contentChars: article.content?.length || 0,
+      };
+    }
+    return article;
+  });
 };
 
 export const getNewArticles = async (source?: string): Promise<Article[]> => {

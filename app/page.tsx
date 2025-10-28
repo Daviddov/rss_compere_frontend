@@ -77,9 +77,23 @@ export default function Dashboard() {
     setIsLoading(true);
     try {
       await api.fetchArticles();
-      await mutateArticles();
-      await mutateStats();
-      alert('✅ כתבות נשלפו בהצלחה!');
+      
+      alert('✅ שליפת הכתבות התחילה ברקע!\nהנתונים יתעדכנו אוטומטית.');
+      
+      // רענון נתונים כל 3 שניות למשך 30 שניות
+      let refreshCount = 0;
+      const maxRefreshes = 10;
+      
+      const intervalId = setInterval(async () => {
+        refreshCount++;
+        await mutateArticles();
+        await mutateStats();
+        
+        if (refreshCount >= maxRefreshes) {
+          clearInterval(intervalId);
+        }
+      }, 3000);
+      
     } catch (error) {
       alert('❌ שגיאה בשליפת כתבות');
     } finally {
@@ -90,11 +104,31 @@ export default function Dashboard() {
   const handleRunComparison = async () => {
     setIsLoading(true);
     try {
-      const result = await api.runNewComparison();
-      await mutateArticles();
-      await mutateMatches();
+      // הרצת השוואה - עכשיו non-blocking!
+      await api.runNewComparison();
+      
+      // הצגת הודעה שהתהליך התחיל
+      alert('✅ ההשוואה התחילה ברקע!\nהנתונים יתעדכנו אוטומטית כשהתהליך יסתיים.');
+      
+      // רענון מיידי של הסטטיסטיקות
       await mutateStats();
-      alert(`✅ השוואה הושלמה!\nנבדקו: ${result.totalComparisons}\nהתאמות: ${result.totalMatches}`);
+      
+      // רענון נתונים כל 5 שניות למשך 2 דקות
+      let refreshCount = 0;
+      const maxRefreshes = 24; // 2 דקות / 5 שניות
+      
+      const intervalId = setInterval(async () => {
+        refreshCount++;
+        await mutateArticles();
+        await mutateMatches();
+        await mutateStats();
+        
+        if (refreshCount >= maxRefreshes) {
+          clearInterval(intervalId);
+          console.log('השוואה הסתיימה (timeout)');
+        }
+      }, 5000);
+      
     } catch (error) {
       alert('❌ שגיאה בהרצת השוואה');
     } finally {

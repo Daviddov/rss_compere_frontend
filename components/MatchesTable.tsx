@@ -23,6 +23,15 @@ export default function MatchesTable({ matches }: MatchesTableProps) {
     return `${minutes} דקות`;
   };
 
+  const getSourceBadgeColor = (source: string) => {
+    const colors: Record<string, string> = {
+      kikar: 'bg-blue-100 text-blue-700',
+      bhol: 'bg-purple-100 text-purple-700',
+      jdn: 'bg-green-100 text-green-700',
+    };
+    return colors[source.toLowerCase()] || 'bg-gray-100 text-gray-700';
+  };
+
   if (matches.length === 0) {
     return (
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
@@ -34,107 +43,108 @@ export default function MatchesTable({ matches }: MatchesTableProps) {
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead className="bg-gray-50 border-b border-gray-200">
-            <tr>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                כתבה 1
-              </th>
-              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                ←→
-              </th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                כתבה 2
-              </th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                טובה יותר
-              </th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                הפרש זמן
-              </th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                תאריך התאמה
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
-            {matches.map((match) => {
-              const isBetter1 = match.betterArticleId === match.article1Id;
-              const isBetter2 = match.betterArticleId === match.article2Id;
+    <div className="space-y-4">
+      {matches.map((match) => {
+        const isBetter1 = match.betterArticleId === match.article1Id;
 
-              return (
-                <tr key={match.matchId} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4">
-                    <div className="flex items-start gap-2">
-                      {isBetter1 && <Trophy className="w-4 h-4 text-yellow-500 flex-shrink-0 mt-0.5" />}
-                      <div className="flex-1">
-                        <div className="text-sm font-medium text-gray-900 line-clamp-2">
-                          {match.article1Title}
-                        </div>
-                        <a
-                          href={match.article1Link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 mt-1"
-                        >
-                          <ExternalLink className="w-3 h-3" />
-                          קישור
-                        </a>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <div className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-100">
-                      <span className="text-blue-600 font-bold">⟷</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-start gap-2">
-                      {isBetter2 && <Trophy className="w-4 h-4 text-yellow-500 flex-shrink-0 mt-0.5" />}
-                      <div className="flex-1">
-                        <div className="text-sm font-medium text-gray-900 line-clamp-2">
-                          {match.article2Title}
-                        </div>
-                        <a
-                          href={match.article2Link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 mt-1"
-                        >
-                          <ExternalLink className="w-3 h-3" />
-                          קישור
-                        </a>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
-                      isBetter1 ? 'bg-yellow-100 text-yellow-700' : 'bg-yellow-100 text-yellow-700'
-                    }`}>
-                      <Trophy className="w-3 h-3" />
-                      כתבה {isBetter1 ? '1' : '2'}
+        return (
+          <div key={match.matchId} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* כתבה 1 */}
+              <div className="space-y-3">
+                <div className="flex items-start gap-2">
+                  {isBetter1 && <Trophy className="w-5 h-5 text-yellow-500 flex-shrink-0 mt-0.5" />}
+                  <div className="flex-1">
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium mb-2 ${getSourceBadgeColor(match.article1Source)}`}>
+                      {match.article1Source}
                     </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center gap-1 text-sm text-gray-600">
-                      <Clock className="w-3 h-3" />
-                      {formatTimeDiff(match.publishedDiffSeconds)}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {match.createdAt ? formatDistanceToNow(new Date(match.createdAt), { 
-                      addSuffix: true, 
-                      locale: he 
-                    }) : '-'}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+                    <h4 className="text-sm font-medium text-gray-900 mb-2">
+                      {match.article1Title}
+                    </h4>
+                    <a
+                      href={match.article1Link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      קישור לכתבה
+                    </a>
+                  </div>
+                </div>
+              </div>
+
+              {/* מחבר */}
+              <div className="flex items-center justify-center lg:justify-start">
+                <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-blue-100">
+                  <span className="text-blue-600 text-xl font-bold">⟷</span>
+                </div>
+              </div>
+
+              {/* כתבה 2 */}
+              <div className="space-y-3 lg:col-start-2">
+                <div className="flex items-start gap-2">
+                  {!isBetter1 && <Trophy className="w-5 h-5 text-yellow-500 flex-shrink-0 mt-0.5" />}
+                  <div className="flex-1">
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium mb-2 ${getSourceBadgeColor(match.article2Source)}`}>
+                      {match.article2Source}
+                    </span>
+                    <h4 className="text-sm font-medium text-gray-900 mb-2">
+                      {match.article2Title}
+                    </h4>
+                    <a
+                      href={match.article2Link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      קישור לכתבה
+                    </a>
+                  </div>
+                </div>
+              </div>
+
+              {/* מטא-נתונים */}
+              <div className="lg:col-start-1 space-y-2">
+                <div className="flex items-center gap-2 text-sm">
+                  <Clock className="w-4 h-4 text-gray-400" />
+                  <span className="text-gray-600">הפרש זמן:</span>
+                  <span className="font-medium text-gray-900">{formatTimeDiff(match.publishedDiffSeconds)}</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <Trophy className="w-4 h-4 text-gray-400" />
+                  <span className="text-gray-600">טובה יותר:</span>
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getSourceBadgeColor(match.betterArticleSource)}`}>
+                    {match.betterArticleSource}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* סיבה */}
+            {match.reason && (
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <div className="flex items-start gap-2">
+                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center">
+                    <span className="text-blue-600 text-xs">💡</span>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-gray-700 mb-1">למה כתבה זו טובה יותר:</p>
+                    <p className="text-sm text-gray-600 leading-relaxed">{match.reason}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* פוטר */}
+            <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500">
+              <span>נוצרה: {match.createdAt ? formatDistanceToNow(new Date(match.createdAt), { addSuffix: true, locale: he }) : '-'}</span>
+              <span>#{match.matchId}</span>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

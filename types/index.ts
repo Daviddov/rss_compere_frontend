@@ -11,18 +11,32 @@ export interface Article {
   checked_at?: string;
   is_new?: number;
   created_at?: string;
+  stats?: ArticleStats;
+}
+
+export interface ArticleStats {
+  titleWords: number;
+  titleChars: number;
+  summaryWords: number;
+  summaryChars: number;
+  contentWords: number;
+  contentChars: number;
 }
 
 export interface Match {
   matchId: number;
   article1Id: number;
   article2Id: number;
+  article1Source: string;
   article1Title: string;
   article1Link: string;
+  article2Source: string;
   article2Title: string;
   article2Link: string;
   betterArticleId: number;
   betterArticleLink: string;
+  betterArticleSource: string;
+  reason?: string;
   firstPublishedId: number;
   publishedDiffSeconds: number | null;
   createdAt: string;
