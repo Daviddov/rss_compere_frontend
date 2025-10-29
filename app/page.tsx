@@ -21,10 +21,13 @@ import ArticlesTable from '@/components/ArticlesTable';
 import MatchesTable from '@/components/MatchesTable';
 import Charts from '@/components/Charts';
 import FilterPanel from '@/components/FilterPanel';
+import FetchControl from '@/components/FetchControl';
+import ComparisonControl from '@/components/ComparisonControl';
+import ReportGenerator from '@/components/ReportGenerator';
 import * as api from '@/lib/api';
-import type { FilterOptions, SourceComparison, MatchFilterOptions } from '@/types'; // Added MatchFilterOptions
+import type { FilterOptions, SourceComparison, MatchFilterOptions } from '@/types';
 
-// Helper function to calculate median (Moved outside to be used in the memo)
+// Helper function to calculate median
 const calculateMedianDelayMinutes = (delays: number[]): number => {
     if (delays.length === 0) return 0;
     delays.sort((a, b) => a - b);
@@ -32,13 +35,11 @@ const calculateMedianDelayMinutes = (delays: number[]): number => {
     const medianSeconds = delays.length % 2 !== 0 
         ? delays[mid]
         : (delays[mid - 1] + delays[mid]) / 2;
-    return Math.round(medianSeconds / 60); // Return in minutes
+    return Math.round(medianSeconds / 60);
 };
 
-
 export default function Dashboard() {
-  const [selectedTab, setSelectedTab] = useState<'overview' | 'articles' | 'matches' | 'analytics'>('overview');
-  // UPDATED: Allow MatchFilterOptions for analytics filtering context
+  const [selectedTab, setSelectedTab] = useState<'overview' | 'articles' | 'matches' | 'analytics' | 'tools'>('overview');
   const [filters, setFilters] = useState<FilterOptions | MatchFilterOptions>({}); 
   const [selectedArticles, setSelectedArticles] = useState<number[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -49,7 +50,6 @@ export default function Dashboard() {
   });
   
   const { data: articles, mutate: mutateArticles } = useSWR(
-    // Cast filters to FilterOptions for article fetching
     ['articles', filters], 
     () => api.getArticles(filters as FilterOptions),
     { refreshInterval: 10000 }
@@ -61,46 +61,37 @@ export default function Dashboard() {
   
   const { data: sources } = useSWR('sources', api.getSources);
 
-  // חישוב נתוני גרפים (UPDATED: Added Median, First Published, and Average Content Words logic)
+  // חישוב נתוני גרפים
   const sourceComparison: SourceComparison[] = React.useMemo(() => {
-    if (!articles || !sources || !matches) return []; // Ensure matches is available
+    if (!articles || !sources || !matches) return [];
     
-    // Apply basic filtering (only on 'source' field, as FilterPanel only has basic fields in the provided version)
     const currentFilters = filters as FilterOptions;
     const filteredArticles = articles.filter(a => !currentFilters.source || a.source === currentFilters.source);
     
-    // In the provided code, matches are unfiltered. We filter them here for analytics.
     const filteredMatches = matches.filter(m => {
-        // Apply the 'source' filter to matches as well
         if (currentFilters.source && m.article1Source !== currentFilters.source && m.article2Source !== currentFilters.source) {
             return false;
         }
         return true;
     });
 
-
     return sources.map(source => {
       const sourceArticles = filteredArticles.filter(a => a.source === source);
       const checked = sourceArticles.filter(a => a.checked === 1).length;
       const newCount = sourceArticles.filter(a => a.is_new === 1).length;
       
-      // Calculate matches for the current source within the filtered set
       const sourceMatches = filteredMatches.filter(m => 
         (sourceArticles.find(a => a.id === m.article1Id) && m.article1Source === source) ||
         (sourceArticles.find(a => a.id === m.article2Id) && m.article2Source === source)
       ).length;
 
-      // --- New Calculations ---
-      // 1. Better Article Count (Quality)
       const betterArticleCount = filteredMatches.filter(m => m.betterArticleSource === source).length;
       
-      // 2. First Published Count (Speed)
       const firstPublishedCount = filteredMatches.filter(m => 
         (m.firstPublishedId === m.article1Id && m.article1Source === source) ||
         (m.firstPublishedId === m.article2Id && m.article2Source === source)
       ).length;
       
-      // 3. Median Delay Calculation (Speed Consistency)
       const delays: number[] = []; 
       const totalPublishedDelaySeconds = filteredMatches.reduce((sum, m) => {
         const isCurrentSourceInvolved = m.article1Source === source || m.article2Source === source;
@@ -108,7 +99,7 @@ export default function Dashboard() {
                                      (m.firstPublishedId === m.article2Id && m.article2Source === source);
                              
         if (isCurrentSourceInvolved && !isCurrentSourceFirst && m.publishedDiffSeconds !== null) {
-          delays.push(m.publishedDiffSeconds); // Store the delay for median
+          delays.push(m.publishedDiffSeconds);
           return sum + m.publishedDiffSeconds;
         }
         return sum;
@@ -116,11 +107,9 @@ export default function Dashboard() {
       
       const medianDelayMinutes = calculateMedianDelayMinutes(delays);
       
-      // 4. Average Content Words Calculation (Depth)
       const articlesWithContent = sourceArticles.filter(a => a.stats?.contentWords);
       const totalContentWords = articlesWithContent.reduce((sum, a) => sum + (a.stats?.contentWords || 0), 0);
       const averageContentWords = articlesWithContent.length > 0 ? Math.round(totalContentWords / articlesWithContent.length) : 0;
-      
       
       return {
         source,
@@ -137,14 +126,13 @@ export default function Dashboard() {
     });
   }, [articles, sources, matches, filters]);
 
-
-  // פעולות (השארתי את הקוד המקורי שהעברת, עם תיקוני Alert קלים)
-  const handleFetchArticles = async () => {
+  // פעולות
+  const handleFetchArticles = async (selectedSources: string[]) => {
     setIsLoading(true);
     try {
-      await api.fetchArticles();
+      await api.fetchArticles(selectedSources);
       
-      alert('✅ שליפת הכתבות התחילה ברקע! הנתונים יתעדכנו אוטומטית.');
+      alert(`✅ שליפת כתבות מ-${selectedSources.length} מקורות התחילה ברקע! הנתונים יתעדכנו אוטומטית.`);
       
       let refreshCount = 0;
       const maxRefreshes = 10;
@@ -166,10 +154,10 @@ export default function Dashboard() {
     }
   };
 
-  const handleRunComparison = async () => {
+  const handleRunComparison = async (options: any) => {
     setIsLoading(true);
     try {
-      await api.runNewComparison();
+      await api.runAdvancedComparison(options);
       
       alert('✅ ההשוואה התחילה ברקע! הנתונים יתעדכנו אוטומטית כשהתהליך יסתיים.');
       
@@ -186,12 +174,12 @@ export default function Dashboard() {
         
         if (refreshCount >= maxRefreshes) {
           clearInterval(intervalId);
-          console.log('השוואה הסתיימה (timeout)');
+          console.log('ההשוואה הסתיימה (timeout)');
         }
       }, 5000);
       
     } catch (error) {
-      alert('❌ שגיאה בהרצת השוואה');
+      alert('❌ שגיאה בהרצת ההשוואה');
     } finally {
       setIsLoading(false);
     }
@@ -257,20 +245,12 @@ export default function Dashboard() {
             </div>
             <div className="flex items-center gap-3">
               <button
-                onClick={handleFetchArticles}
+                onClick={() => mutateArticles()}
                 disabled={isLoading}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 disabled:bg-gray-400 text-white rounded-lg transition-colors"
               >
-                <Download className="w-4 h-4" />
-                שלוף כתבות
-              </button>
-              <button
-                onClick={handleRunComparison}
-                disabled={isLoading}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-lg transition-colors"
-              >
-                <Play className="w-4 h-4" />
-                הרץ השוואה
+                <RefreshCw className="w-4 h-4" />
+                רענן
               </button>
             </div>
           </div>
@@ -285,6 +265,7 @@ export default function Dashboard() {
             { id: 'articles', label: 'כתבות', icon: FileText },
             { id: 'matches', label: 'התאמות', icon: Link2 },
             { id: 'analytics', label: 'ניתוח נתונים', icon: TrendingUp },
+            { id: 'tools', label: 'כלי ניהול', icon: Database },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -440,6 +421,32 @@ export default function Dashboard() {
               onFilterChange={setFilters}
             />
             <Charts sourceData={sourceComparison} />
+          </div>
+        )}
+
+        {/* Tools Tab */}
+        {selectedTab === 'tools' && (
+          <div className="space-y-6">
+            <FetchControl
+              sources={sources || []}
+              onFetch={handleFetchArticles}
+              isLoading={isLoading}
+            />
+            
+            <ComparisonControl
+              sources={sources || []}
+              onRunComparison={handleRunComparison}
+              isLoading={isLoading}
+            />
+
+            {stats && (
+              <ReportGenerator
+                stats={stats}
+                sourceData={sourceComparison}
+                matches={matches || []}
+                articles={articles || []}
+              />
+            )}
           </div>
         )}
       </div>

@@ -83,8 +83,8 @@ export const deleteMatches = async (matchIds: number[]): Promise<void> => {
 };
 
 // Operations
-export const fetchArticles = async (): Promise<void> => {
-  await api.post('/fetch');
+export const fetchArticles = async (sources?: string[]): Promise<void> => {
+  await api.post('/fetch', { sources });
 };
 
 export const runComparison = async (): Promise<ComparisonResult> => {
@@ -106,6 +106,11 @@ export const runAdvancedComparison = async (options: any): Promise<ComparisonRes
 export const getSources = async (): Promise<string[]> => {
   const { data } = await api.get('/sources');
   return data.sources;
+};
+
+// Reports
+export const sendReport = async (email: string, html: string, reportType: string): Promise<void> => {
+  await api.post('/send-report', { email, html, reportType });
 };
 
 export default api;
