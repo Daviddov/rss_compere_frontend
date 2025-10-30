@@ -1,8 +1,17 @@
+// app/page.tsx
 'use client';
 
 import React, { useState } from 'react';
 import useSWR from 'swr';
-import { FileText, Link2, RefreshCw, Sparkles, CheckCircle, XCircle, TrendingUp, Database, Activity } from 'lucide-react';
+import { 
+  FileText, 
+  Link2, 
+  CheckCircle,
+  XCircle,
+  TrendingUp,
+  Database,
+  Activity
+} from 'lucide-react';
 import StatsCard from '@/components/StatsCard';
 import ArticlesTable from '@/components/ArticlesTable';
 import MatchesTable from '@/components/MatchesTable';
@@ -11,26 +20,48 @@ import FilterPanel from '@/components/FilterPanel';
 import FetchControl from '@/components/FetchControl';
 import ComparisonControl from '@/components/ComparisonControl';
 import ReportGenerator from '@/components/ReportGenerator';
+import JobProgress from '@/components/JobProgress';
+import { useJobProgress } from '@/hooks/useJobProgress';
 import * as api from '@/lib/api';
-import type { FilterOptions, SourceComparison } from '@/types';
+import type { FilterOptions, SourceComparison, MatchFilterOptions } from '@/types';
 
 const calculateMedianDelayMinutes = (delays: number[]): number => {
   if (delays.length === 0) return 0;
   delays.sort((a, b) => a - b);
   const mid = Math.floor(delays.length / 2);
-  const medianSeconds = delays.length % 2 !== 0 ? delays[mid] : (delays[mid - 1] + delays[mid]) / 2;
+  const medianSeconds = delays.length % 2 !== 0 
+    ? delays[mid]
+    : (delays[mid - 1] + delays[mid]) / 2;
   return Math.round(medianSeconds / 60);
 };
 
 export default function Dashboard() {
   const [selectedTab, setSelectedTab] = useState<'overview' | 'articles' | 'matches' | 'analytics' | 'tools'>('overview');
-  const [filters, setFilters] = useState<FilterOptions>({});
+  const [filters, setFilters] = useState<FilterOptions | MatchFilterOptions>({}); 
   const [selectedArticles, setSelectedArticles] = useState<number[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
 
-  const { data: stats, mutate: mutateStats } = useSWR('stats', api.getStats, { refreshInterval: 10000 });
-  const { data: articles, mutate: mutateArticles } = useSWR(['articles', filters], () => api.getArticles(filters), { refreshInterval: 10000 });
-  const { data: matches, mutate: mutateMatches } = useSWR('matches', api.getMatches, { refreshInterval: 10000 });
+  // Job Progress Hook
+  const { activeJobs, startJob } = useJobProgress((job) => {
+    // Refresh data when job completes
+    mutateArticles();
+    mutateMatches();
+    mutateStats();
+  });
+
+  const { data: stats, mutate: mutateStats } = useSWR('stats', api.getStats, { 
+    refreshInterval: 10000 
+  });
+  
+  const { data: articles, mutate: mutateArticles } = useSWR(
+    ['articles', filters], 
+    () => api.getArticles(filters as FilterOptions),
+    { refreshInterval: 10000 }
+  );
+  
+  const { data: matches, mutate: mutateMatches } = useSWR('matches', api.getMatches, {
+    refreshInterval: 10000
+  });
+  
   const { data: sources } = useSWR('sources', api.getSources);
 
   const sourceComparison: SourceComparison[] = React.useMemo(() => {
@@ -38,220 +69,280 @@ export default function Dashboard() {
     
     return sources.map(source => {
       const sourceArticles = articles.filter(a => a.source === source);
-      const checked = sourceArticles.filter(a => a.checked === 1).length;
-      const newCount = sourceArticles.filter(a => a.is_new === 1).length;
+      const sourceMatches = matches.filter(m => m.source1 === source || m.source2 === source);
       
-      const sourceMatches = matches.filter(m => 
-        (sourceArticles.find(a => a.id === m.article1Id) && m.article1Source === source) ||
-        (sourceArticles.find(a => a.id === m.article2Id) && m.article2Source === source)
-      ).length;
-
-      const betterArticleCount = matches.filter(m => m.betterArticleSource === source).length;
-      const firstPublishedCount = matches.filter(m => 
-        (m.firstPublishedId === m.article1Id && m.article1Source === source) ||
-        (m.firstPublishedId === m.article2Id && m.article2Source === source)
+      const delays = sourceMatches
+        .filter(m => m.publishedDiffSeconds !== undefined)
+        .map(m => m.publishedDiffSeconds!);
+      
+      const firstPublished = sourceMatches.filter(m => 
+        (m.source1 === source && m.betterArticle === m.article1Id) ||
+        (m.source2 === source && m.betterArticle === m.article2Id)
       ).length;
       
-      const delays: number[] = [];
-      matches.forEach(m => {
-        const isCurrentSourceInvolved = m.article1Source === source || m.article2Source === source;
-        const isCurrentSourceFirst = (m.firstPublishedId === m.article1Id && m.article1Source === source) || 
-                                     (m.firstPublishedId === m.article2Id && m.article2Source === source);
-        if (isCurrentSourceInvolved && !isCurrentSourceFirst && m.publishedDiffSeconds !== null) {
-          delays.push(m.publishedDiffSeconds);
-        }
-      });
+      const betterArticles = sourceMatches.filter(m => 
+        (m.source1 === source && m.betterArticle === m.article1Id) ||
+        (m.source2 === source && m.betterArticle === m.article2Id)
+      ).length;
       
-      const medianDelayMinutes = calculateMedianDelayMinutes(delays);
-      
-      const articlesWithContent = sourceArticles.filter(a => a.stats?.contentWords);
-      const totalContentWords = articlesWithContent.reduce((sum, a) => sum + (a.stats?.contentWords || 0), 0);
-      const averageContentWords = articlesWithContent.length > 0 ? Math.round(totalContentWords / articlesWithContent.length) : 0;
+      const avgWords = sourceArticles.length > 0
+        ? Math.round(sourceArticles.reduce((sum, a) => sum + (a.stats?.contentWords || 0), 0) / sourceArticles.length)
+        : 0;
       
       return {
         source,
         total: sourceArticles.length,
-        checked,
-        matches: sourceMatches,
-        new: newCount,
-        betterArticleCount,
-        firstPublishedCount,
-        totalPublishedDelaySeconds: delays.reduce((a, b) => a + b, 0),
-        medianDelayMinutes,
-        averageContentWords,
+        checked: sourceArticles.filter(a => a.checked === 1).length,
+        matches: sourceMatches.length,
+        firstPublishedCount: firstPublished,
+        betterArticleCount: betterArticles,
+        medianDelayMinutes: calculateMedianDelayMinutes(delays),
+        averageContentWords: avgWords
       };
     });
   }, [articles, sources, matches]);
 
-  const handleFetchArticles = async (selectedSources: string[]) => {
-    setIsLoading(true);
+  const handleFetchArticles = async (selectedSources?: string[]) => {
     try {
       await api.fetchArticles(selectedSources);
-      alert('✅ שליפה התחילה ברקע');
-      setTimeout(() => { mutateArticles(); mutateStats(); }, 3000);
-    } catch { alert('❌ שגיאה'); }
-    finally { setIsLoading(false); }
+      // Refresh after some delay
+      setTimeout(() => {
+        mutateArticles();
+        mutateStats();
+      }, 3000);
+    } catch (err) {
+      alert('❌ שגיאה בשליפת כתבות');
+    }
   };
 
   const handleRunComparison = async (options: any) => {
-    setIsLoading(true);
     try {
-      await api.runAdvancedComparison(options);
-      alert('✅ השוואה התחילה ברקע');
-      setTimeout(() => { mutateArticles(); mutateMatches(); mutateStats(); }, 5000);
-    } catch { alert('❌ שגיאה'); }
-    finally { setIsLoading(false); }
-  };
-
-  const handleMarkAsChecked = async () => {
-    if (!selectedArticles.length) return;
-    setIsLoading(true);
-    try {
-      await api.markArticlesAsChecked(selectedArticles);
-      await mutateArticles();
-      await mutateStats();
-      setSelectedArticles([]);
-      alert(`✅ סומנו ${selectedArticles.length} כתבות`);
-    } catch { alert('❌ שגיאה'); }
-    finally { setIsLoading(false); }
-  };
-
-  const handleMarkAllAsNew = async () => {
-    if (!confirm('לסמן הכל כחדש?')) return;
-    setIsLoading(true);
-    try {
-      await api.markAllAsNew();
-      await mutateArticles();
-      await mutateStats();
-      alert('✅ הכל סומן כחדש');
-    } catch { alert('❌ שגיאה'); }
-    finally { setIsLoading(false); }
+      let jobId: string;
+      
+      if (options.mode === 'find-matches') {
+        const result = await api.findMatches({
+          source: options.source,
+          fromDate: options.fromDate,
+          toDate: options.toDate,
+          onlyNew: options.onlyNew
+        });
+        jobId = result.jobId;
+      } else {
+        const result = await api.compareQuality({
+          source: options.source,
+          fromDate: options.fromDate,
+          toDate: options.toDate,
+          onlyUnchecked: options.onlyUnchecked
+        });
+        jobId = result.jobId;
+      }
+      
+      // Start tracking job
+      startJob(jobId);
+      
+    } catch (err) {
+      alert('❌ שגיאה בהשוואה');
+    }
   };
 
   const handleDeleteArticles = async () => {
-    if (!selectedArticles.length || !confirm(`למחוק ${selectedArticles.length} כתבות?`)) return;
-    setIsLoading(true);
+    if (selectedArticles.length === 0 || !confirm(`למחוק ${selectedArticles.length} כתבות?`)) return;
+    
     try {
       await api.deleteArticles(selectedArticles);
       await mutateArticles();
       await mutateStats();
       setSelectedArticles([]);
-      alert(`✅ נמחקו ${selectedArticles.length}`);
-    } catch { alert('❌ שגיאה'); }
-    finally { setIsLoading(false); }
+    } catch (err) {
+      alert('❌ שגיאה במחיקת כתבות');
+    }
+  };
+
+  const handleMarkAsChecked = async () => {
+    if (selectedArticles.length === 0) return;
+    
+    try {
+      await api.markArticlesAsChecked(selectedArticles);
+      await mutateArticles();
+      await mutateStats();
+      setSelectedArticles([]);
+    } catch (err) {
+      alert('❌ שגיאה בסימון כתבות');
+    }
   };
 
   return (
     <div className="min-h-screen bg-gray-50" dir="rtl">
-      <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">מערכת ניתוח כתבות RSS</h1>
-              <p className="text-sm text-gray-600 mt-1">ניהול ומעקב אחר כתבות מרובות מקורות</p>
-            </div>
-            <button onClick={() => mutateArticles()} disabled={isLoading} className="flex items-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 disabled:bg-gray-400 text-white rounded-lg">
-              <RefreshCw className="w-4 h-4" />
-              רענן
-            </button>
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">מערכת ניתוח RSS</h1>
+          
+          <div className="flex gap-2 overflow-x-auto">
+            {[
+              { id: 'overview', label: 'סקירה', icon: Database },
+              { id: 'articles', label: 'כתבות', icon: FileText },
+              { id: 'matches', label: 'התאמות', icon: Link2 },
+              { id: 'analytics', label: 'ניתוח', icon: TrendingUp },
+              { id: 'tools', label: 'כלים', icon: Activity }
+            ].map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                onClick={() => setSelectedTab(id as any)}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 whitespace-nowrap ${
+                  selectedTab === id
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                {label}
+              </button>
+            ))}
           </div>
         </div>
-      </header>
+      </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex gap-2 mb-6 overflow-x-auto">
-          {[
-            { id: 'overview', label: 'סקירה', icon: Activity },
-            { id: 'articles', label: 'כתבות', icon: FileText },
-            { id: 'matches', label: 'התאמות', icon: Link2 },
-            { id: 'analytics', label: 'ניתוח', icon: TrendingUp },
-            { id: 'tools', label: 'כלים', icon: Database },
-          ].map((tab) => (
-            <button key={tab.id} onClick={() => setSelectedTab(tab.id as any)} className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium whitespace-nowrap ${selectedTab === tab.id ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-100'}`}>
-              <tab.icon className="w-4 h-4" />
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
+      {/* Content */}
+      <div className="max-w-7xl mx-auto px-4 py-6">
+        {/* Overview Tab */}
         {selectedTab === 'overview' && stats && (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <StatsCard title="סה״כ כתבות" value={stats.totalArticles} icon={FileText} color="blue" subtitle={`${stats.newArticles} חדשות`} />
-              <StatsCard title="נבדקו" value={stats.checkedArticles} icon={CheckCircle} color="green" />
-              <StatsCard title="חדשות" value={stats.newArticles} icon={Sparkles} color="yellow" />
-              <StatsCard title="התאמות" value={stats.totalMatches} icon={Link2} color="purple" />
-              <StatsCard title="לא נבדקו" value={stats.uncheckedArticles} icon={XCircle} color="orange" />
-              <StatsCard title="עם התאמות" value={stats.matchedArticlesCount} icon={Database} color="blue" />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <StatsCard
+                title="סה״כ כתבות"
+                value={stats.totalArticles}
+                icon={FileText}
+                color="blue"
+              />
+              <StatsCard
+                title="נבדקו"
+                value={stats.checkedArticles}
+                icon={CheckCircle}
+                color="green"
+              />
+              <StatsCard
+                title="חדשות"
+                value={stats.newArticles}
+                icon={Activity}
+                color="yellow"
+              />
+              <StatsCard
+                title="התאמות"
+                value={stats.totalMatches}
+                icon={Link2}
+                color="purple"
+              />
+              <StatsCard
+                title="הושוו לאיכות"
+                value={stats.qualityCheckedMatches}
+                icon={CheckCircle}
+                color="green"
+              />
+              <StatsCard
+                title="לא הושוו"
+                value={stats.uncheckedMatches}
+                icon={XCircle}
+                color="red"
+              />
             </div>
-
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold mb-4">פעולות מהירות</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <button onClick={handleMarkAllAsNew} disabled={isLoading} className="flex items-center justify-center gap-2 px-4 py-3 bg-yellow-50 hover:bg-yellow-100 text-yellow-700 rounded-lg border border-yellow-200">
-                  <Sparkles className="w-5 h-5" />
-                  סמן הכל כחדש
-                </button>
-                <button onClick={() => mutateArticles()} disabled={isLoading} className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg border border-blue-200">
-                  <RefreshCw className="w-5 h-5" />
-                  רענן נתונים
-                </button>
-                <button onClick={handleDeleteArticles} disabled={isLoading || !selectedArticles.length} className="flex items-center justify-center gap-2 px-4 py-3 bg-red-50 hover:bg-red-100 text-red-700 rounded-lg border border-red-200 disabled:opacity-50">
-                  <XCircle className="w-5 h-5" />
-                  מחק ({selectedArticles.length})
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {selectedTab === 'articles' && (
-          <div className="space-y-6">
-            <FilterPanel sources={sources || []} currentFilters={filters} onFilterChange={setFilters} />
-            {selectedArticles.length > 0 && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex justify-between">
-                <p className="text-blue-700 font-medium">נבחרו {selectedArticles.length}</p>
-                <div className="flex gap-2">
-                  <button onClick={handleMarkAsChecked} className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm rounded">סמן</button>
-                  <button onClick={handleDeleteArticles} className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-sm rounded">מחק</button>
-                </div>
-              </div>
-            )}
-            <ArticlesTable articles={articles || []} selectable onSelect={setSelectedArticles} />
-          </div>
-        )}
-
-        {selectedTab === 'matches' && (
-          <div className="space-y-6">
-            <FilterPanel sources={sources || []} currentFilters={filters} onFilterChange={setFilters} />
-            <MatchesTable matches={matches || []} />
-          </div>
-        )}
-
-        {selectedTab === 'analytics' && (
-          <div className="space-y-6">
-            <FilterPanel sources={sources || []} currentFilters={filters} onFilterChange={setFilters} />
+            
             <Charts sourceData={sourceComparison} />
           </div>
         )}
 
+        {/* Articles Tab */}
+        {selectedTab === 'articles' && (
+          <div className="space-y-6">
+            <FilterPanel
+              sources={sources || []}
+              currentFilters={filters}
+              onFilterChange={setFilters}
+            />
+            
+            {selectedArticles.length > 0 && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between">
+                <span className="text-blue-900 font-medium">
+                  {selectedArticles.length} כתבות נבחרו
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleMarkAsChecked}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                  >
+                    סמן כנבדקו
+                  </button>
+                  <button
+                    onClick={handleDeleteArticles}
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                  >
+                    מחק
+                  </button>
+                </div>
+              </div>
+            )}
+            
+            <ArticlesTable
+              articles={articles || []}
+              selectable
+              onSelect={setSelectedArticles}
+            />
+          </div>
+        )}
+
+        {/* Matches Tab */}
+        {selectedTab === 'matches' && (
+          <div className="space-y-6">
+            <FilterPanel
+              sources={sources || []}
+              currentFilters={filters}
+              onFilterChange={setFilters}
+            />
+            <MatchesTable matches={matches || []} />
+          </div>
+        )}
+
+        {/* Analytics Tab */}
+        {selectedTab === 'analytics' && (
+          <div className="space-y-6">
+            <FilterPanel
+              sources={sources || []}
+              currentFilters={filters}
+              onFilterChange={setFilters}
+            />
+            <Charts sourceData={sourceComparison} />
+          </div>
+        )}
+
+        {/* Tools Tab */}
         {selectedTab === 'tools' && (
           <div className="space-y-6">
-            <FetchControl sources={sources || []} onFetch={handleFetchArticles} isLoading={isLoading} />
-            <ComparisonControl sources={sources || []} onRunComparison={handleRunComparison} isLoading={isLoading} />
-            {stats && <ReportGenerator stats={stats} sourceData={sourceComparison} matches={matches || []} articles={articles || []} />}
+            <FetchControl
+              sources={sources || []}
+              onFetch={handleFetchArticles}
+              isLoading={false}
+            />
+            
+            <ComparisonControl
+              sources={sources || []}
+              onRunComparison={handleRunComparison}
+              isLoading={false}
+            />
+
+            {stats && (
+              <ReportGenerator
+                stats={stats}
+                sourceData={sourceComparison}
+                matches={matches || []}
+                articles={articles || []}
+              />
+            )}
           </div>
         )}
       </div>
 
-      {isLoading && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 flex items-center gap-3">
-            <RefreshCw className="w-5 h-5 animate-spin text-blue-600" />
-            <span className="text-gray-900 font-medium">טוען...</span>
-          </div>
-        </div>
-      )}
+      {/* Job Progress Overlay */}
+      <JobProgress jobs={activeJobs} />
     </div>
   );
 }

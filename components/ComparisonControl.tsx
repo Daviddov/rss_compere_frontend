@@ -2,18 +2,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Play, Calendar, Filter } from 'lucide-react';
+import { Play, Calendar, Filter, Sparkles } from 'lucide-react';
 import { format } from 'date-fns';
-
-interface ComparisonOptions {
-  sources?: string[];
-  competitorSources?: string[];
-  fromDate?: string;
-  toDate?: string;
-  onlyUnmatched?: boolean;
-  onlyUnchecked?: boolean;
-  maxArticlesPerSource?: number;
-}
 
 interface ComparisonControlProps {
   sources: string[];
@@ -21,37 +11,32 @@ interface ComparisonControlProps {
   isLoading: boolean;
 }
 
+interface ComparisonOptions {
+  mode: 'find-matches' | 'compare-quality';
+  source?: string;
+  fromDate?: string;
+  toDate?: string;
+  onlyNew?: boolean;
+  onlyUnchecked?: boolean;
+}
+
 export default function ComparisonControl({ sources, onRunComparison, isLoading }: ComparisonControlProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [selectedSources, setSelectedSources] = useState<string[]>([]);
-  const [competitorSources, setCompetitorSources] = useState<string[]>([]);
+  const [mode, setMode] = useState<'find-matches' | 'compare-quality'>('find-matches');
+  const [selectedSource, setSelectedSource] = useState<string>('');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
-  const [onlyUnmatched, setOnlyUnmatched] = useState(true);
+  const [onlyNew, setOnlyNew] = useState(false);
   const [onlyUnchecked, setOnlyUnchecked] = useState(true);
-  const [maxArticles, setMaxArticles] = useState<number>(100);
-
-  const handleToggleSource = (source: string, isCompetitor: boolean = false) => {
-    if (isCompetitor) {
-      setCompetitorSources(prev => 
-        prev.includes(source) ? prev.filter(s => s !== source) : [...prev, source]
-      );
-    } else {
-      setSelectedSources(prev => 
-        prev.includes(source) ? prev.filter(s => s !== source) : [...prev, source]
-      );
-    }
-  };
 
   const handleRunComparison = async () => {
     const options: ComparisonOptions = {
-      sources: selectedSources.length > 0 ? selectedSources : undefined,
-      competitorSources: competitorSources.length > 0 ? competitorSources : undefined,
+      mode,
+      source: selectedSource || undefined,
       fromDate: fromDate || undefined,
       toDate: toDate || undefined,
-      onlyUnmatched,
-      onlyUnchecked,
-      maxArticlesPerSource: maxArticles,
+      onlyNew: mode === 'find-matches' ? onlyNew : undefined,
+      onlyUnchecked: mode === 'compare-quality' ? onlyUnchecked : undefined,
     };
 
     await onRunComparison(options);
@@ -69,145 +54,159 @@ export default function ComparisonControl({ sources, onRunComparison, isLoading 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-gray-900">השוואת כתבות מתקדמת</h3>
+        <h3 className="text-lg font-semibold text-gray-900">השוואות</h3>
         <button
           onClick={() => setIsOpen(!isOpen)}
           className="text-sm text-blue-600 hover:text-blue-700 font-medium"
         >
-          {isOpen ? 'סגור' : 'פתח'}
+          {isOpen ? 'הסתר' : 'הצג אפשרויות'}
         </button>
       </div>
 
+      {/* Mode Selection */}
+      <div className="mb-4">
+        <div className="flex gap-2">
+          <button
+            onClick={() => setMode('find-matches')}
+            className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
+              mode === 'find-matches'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            🔍 מציאת התאמות
+          </button>
+          <button
+            onClick={() => setMode('compare-quality')}
+            className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
+              mode === 'compare-quality'
+                ? 'bg-purple-600 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            ⭐ השוואת איכות
+          </button>
+        </div>
+      </div>
+
       {isOpen && (
-        <div className="space-y-4">
-          {/* מקורות ראשיים */}
+        <div className="space-y-4 mt-4 pt-4 border-t border-gray-200">
+          {/* Source Filter */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700">מקור (אופציונלי)</label>
+            <select
+              value={selectedSource}
+              onChange={(e) => setSelectedSource(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">כל המקורות</option>
+              {sources.map((source) => (
+                <option key={source} value={source}>
+                  {source}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Date Range */}
           <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <Filter className="w-4 h-4 text-gray-600" />
-              <label className="text-sm font-medium text-gray-700">מקורות להשוואה (אופציונלי)</label>
+              <Calendar className="w-4 h-4 text-gray-600" />
+              <label className="text-sm font-medium text-gray-700">טווח תאריכים</label>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-              {sources.map((source) => (
-                <label
-                  key={source}
-                  className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors"
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedSources.includes(source)}
-                    onChange={() => handleToggleSource(source, false)}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-gray-700">{source}</span>
-                </label>
-              ))}
+            
+            <div className="flex gap-2 mb-2">
+              <button
+                onClick={() => setQuickDateRange(1)}
+                className="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded-lg"
+              >
+                יום אחרון
+              </button>
+              <button
+                onClick={() => setQuickDateRange(7)}
+                className="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded-lg"
+              >
+                שבוע
+              </button>
+              <button
+                onClick={() => setQuickDateRange(30)}
+                className="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded-lg"
+              >
+                חודש
+              </button>
             </div>
-          </div>
-
-          {/* מקורות מתחרים */}
-          <div className="space-y-3 border-t pt-4">
-            <div className="flex items-center gap-2">
-              <Filter className="w-4 h-4 text-purple-600" />
-              <label className="text-sm font-medium text-gray-700">מקורות מתחרים (אופציונלי)</label>
-            </div>
-            <div className="text-xs text-gray-500 mb-2">
-              בחר מקורות ספציפיים להשוואה מולם
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-              {sources.map((source) => (
-                <label
-                  key={source}
-                  className="flex items-center gap-2 text-sm cursor-pointer hover:bg-purple-50 p-2 rounded transition-colors"
-                >
-                  <input
-                    type="checkbox"
-                    checked={competitorSources.includes(source)}
-                    onChange={() => handleToggleSource(source, true)}
-                    className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
-                  />
-                  <span className="text-gray-700">{source}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          {/* תאריכים */}
-          <div className="border-t pt-4 space-y-3">
-            <label className="text-sm font-medium text-gray-700">טווח תאריכים</label>
-            <div className="flex gap-2">
-              <button onClick={() => setQuickDateRange(1)} className="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded">יום</button>
-              <button onClick={() => setQuickDateRange(7)} className="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded">שבוע</button>
-              <button onClick={() => setQuickDateRange(30)} className="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded">חודש</button>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
+            
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs text-gray-600 mb-1">מתאריך</label>
+                <label className="text-xs text-gray-600 mb-1 block">מתאריך</label>
                 <input
                   type="datetime-local"
                   value={fromDate}
                   onChange={(e) => setFromDate(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
-                <label className="block text-xs text-gray-600 mb-1">עד תאריך</label>
+                <label className="text-xs text-gray-600 mb-1 block">עד תאריך</label>
                 <input
                   type="datetime-local"
                   value={toDate}
                   onChange={(e) => setToDate(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             </div>
           </div>
 
-          {/* אפשרויות נוספות */}
-          <div className="border-t pt-4 space-y-2">
-            <label className="text-sm font-medium text-gray-700">אפשרויות</label>
-            
+          {/* Mode-specific Options */}
+          {mode === 'find-matches' && (
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
-                checked={onlyUnmatched}
-                onChange={(e) => setOnlyUnmatched(e.target.checked)}
+                checked={onlyNew}
+                onChange={(e) => setOnlyNew(e.target.checked)}
                 className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
               />
-              <span className="text-sm text-gray-700">רק כתבות ללא התאמות</span>
+              <span className="text-sm text-gray-700">רק כתבות חדשות</span>
             </label>
+          )}
 
+          {mode === 'compare-quality' && (
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
                 checked={onlyUnchecked}
                 onChange={(e) => setOnlyUnchecked(e.target.checked)}
-                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
               />
-              <span className="text-sm text-gray-700">רק כתבות שלא נבדקו</span>
+              <span className="text-sm text-gray-700">רק התאמות שלא נבדקו</span>
             </label>
-
-            <div>
-              <label className="block text-xs text-gray-600 mb-1">מקסימום כתבות למקור</label>
-              <input
-                type="number"
-                value={maxArticles}
-                onChange={(e) => setMaxArticles(parseInt(e.target.value) || 100)}
-                min="1"
-                max="1000"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-              />
-            </div>
-          </div>
-
-          <button
-            onClick={handleRunComparison}
-            disabled={isLoading}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors"
-          >
-            <Play className="w-5 h-5" />
-            {isLoading ? 'מריץ...' : 'הרץ השוואה'}
-          </button>
+          )}
         </div>
       )}
+
+      {/* Run Button */}
+      <button
+        onClick={handleRunComparison}
+        disabled={isLoading}
+        className={`w-full mt-4 px-4 py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
+          mode === 'find-matches'
+            ? 'bg-blue-600 hover:bg-blue-700 text-white'
+            : 'bg-purple-600 hover:bg-purple-700 text-white'
+        } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+      >
+        {mode === 'find-matches' ? (
+          <>
+            <Sparkles className="w-5 h-5" />
+            הרץ מציאת התאמות
+          </>
+        ) : (
+          <>
+            <Play className="w-5 h-5" />
+            הרץ השוואת איכות
+          </>
+        )}
+      </button>
     </div>
   );
 }

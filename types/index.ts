@@ -1,69 +1,58 @@
 // types/index.ts
 export interface Article {
-  id: number;
+  id?: number;
   source: string;
+  category?: string;
   title: string;
   link: string;
-  summary: string;
+  published?: Date | string;
+  summary?: string;
   content?: string;
-  published?: string;
-  checked?: number;
-  checked_at?: string;
-  is_new?: number;
-  created_at?: string;
-  stats?: ArticleStats;
-}
-
-export interface ArticleStats {
-  titleWords: number;
-  titleChars: number;
-  summaryWords: number;
-  summaryChars: number;
-  contentWords: number;
-  contentChars: number;
+  author?: string;
+  isNew: number;
+  checked: number;
+  createdAt?: Date | string;
+  stats?: {
+    titleWords: number;
+    titleChars: number;
+    summaryWords: number;
+    summaryChars: number;
+    contentWords: number;
+    contentChars: number;
+  };
 }
 
 export interface Match {
-  matchId: number;
+  id?: number;
   article1Id: number;
   article2Id: number;
-  article1Source: string;
-  article1Title: string;
-  article1Link: string;
-  article2Source: string;
-  article2Title: string;
-  article2Link: string;
-  betterArticleId: number | null;
-  betterArticleLink?: string;
-  betterArticleSource?: string;
-  reason?: string;
-  firstPublishedId: number;
-  publishedDiffSeconds: number | null;
-  qualityChecked?: number;
-  createdAt: string;
+  similarityScore: number;
+  title1?: string;
+  title2?: string;
+  source1?: string;
+  source2?: string;
+  link1?: string;
+  link2?: string;
+  published1?: Date | string;
+  published2?: Date | string;
+  publishedDiffSeconds?: number;
+  betterArticle?: number;
+  qualityChecked: number;
+  createdAt?: Date | string;
 }
 
 export interface SystemStats {
   totalArticles: number;
   checkedArticles: number;
-  uncheckedArticles: number;
   newArticles: number;
   totalMatches: number;
-  matchedArticlesCount: number;
-}
-
-export interface ComparisonResult {
-  totalComparisons: number;
-  totalMatches: number;
-}
-
-export interface MatchFilterOptions extends FilterOptions {
-  betterSource?: string;
-  onlyReasonProvided?: boolean;
+  qualityCheckedMatches: number;
+  uncheckedMatches: number;
 }
 
 export interface FilterOptions {
   source?: string;
+  category?: string;
   onlyNew?: boolean;
   onlyUnmatched?: boolean;
   onlyUnchecked?: boolean;
@@ -72,16 +61,11 @@ export interface FilterOptions {
   limit?: number;
 }
 
-export interface Source {
-  name: string;
-  count: number;
-  color: string;
-}
-
-export interface TimeSeriesData {
-  date: string;
-  articles: number;
-  matches: number;
+export interface MatchFilterOptions {
+  source?: string;
+  onlyUnchecked?: boolean;
+  publishedAfter?: string;
+  publishedBefore?: string;
 }
 
 export interface SourceComparison {
@@ -89,10 +73,16 @@ export interface SourceComparison {
   total: number;
   checked: number;
   matches: number;
-  new: number;
-  betterArticleCount: number;
   firstPublishedCount: number;
-  totalPublishedDelaySeconds: number;
+  betterArticleCount: number;
   medianDelayMinutes: number;
   averageContentWords: number;
+}
+
+export interface ComparisonOptions {
+  source?: string;
+  fromDate?: string;
+  toDate?: string;
+  onlyNew?: boolean;
+  onlyUnchecked?: boolean;
 }
