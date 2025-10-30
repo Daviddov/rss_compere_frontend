@@ -33,12 +33,13 @@ export interface Match {
   article2Source: string;
   article2Title: string;
   article2Link: string;
-  betterArticleId: number;
-  betterArticleLink: string;
-  betterArticleSource: string;
+  betterArticleId: number | null;
+  betterArticleLink?: string;
+  betterArticleSource?: string;
   reason?: string;
   firstPublishedId: number;
   publishedDiffSeconds: number | null;
+  qualityChecked?: number;
   createdAt: string;
 }
 
@@ -56,7 +57,6 @@ export interface ComparisonResult {
   totalMatches: number;
 }
 
-// ** NEW: Match specific filters (Added for future SWR filtering capability)
 export interface MatchFilterOptions extends FilterOptions {
   betterSource?: string;
   onlyReasonProvided?: boolean;
@@ -90,10 +90,9 @@ export interface SourceComparison {
   checked: number;
   matches: number;
   new: number;
-  // ** ADDED: Fields for advanced comparison and length **
-  betterArticleCount: number; 
-  firstPublishedCount: number; 
-  totalPublishedDelaySeconds: number; 
-  medianDelayMinutes: number; 
-  averageContentWords: number; // For article length comparison
+  betterArticleCount: number;
+  firstPublishedCount: number;
+  totalPublishedDelaySeconds: number;
+  medianDelayMinutes: number;
+  averageContentWords: number;
 }

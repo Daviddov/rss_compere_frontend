@@ -26,7 +26,6 @@ export default function FilterPanel({ sources, onFilterChange, currentFilters }:
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-      {/* כותרת */}
       <div className="p-4 border-b border-gray-200">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -47,14 +46,10 @@ export default function FilterPanel({ sources, onFilterChange, currentFilters }:
         </div>
       </div>
 
-      {/* תוכן הפילטרים */}
       {isOpen && (
         <div className="p-4 space-y-4">
-          {/* מקור */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              מקור
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">מקור</label>
             <select
               value={currentFilters.source || ''}
               onChange={(e) => handleFilterChange('source', e.target.value || undefined)}
@@ -62,18 +57,13 @@ export default function FilterPanel({ sources, onFilterChange, currentFilters }:
             >
               <option value="">כל המקורות</option>
               {sources.map((source) => (
-                <option key={source} value={source}>
-                  {source}
-                </option>
+                <option key={source} value={source}>{source}</option>
               ))}
             </select>
           </div>
 
-          {/* סטטוס */}
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              סטטוס
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">סטטוס</label>
             
             <label className="flex items-center gap-2 cursor-pointer">
               <input
@@ -106,11 +96,8 @@ export default function FilterPanel({ sources, onFilterChange, currentFilters }:
             </label>
           </div>
 
-          {/* תאריכים */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              מתאריך
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">מתאריך</label>
             <input
               type="datetime-local"
               value={currentFilters.publishedAfter || ''}
@@ -120,9 +107,7 @@ export default function FilterPanel({ sources, onFilterChange, currentFilters }:
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              עד תאריך
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">עד תאריך</label>
             <input
               type="datetime-local"
               value={currentFilters.publishedBefore || ''}
@@ -131,11 +116,8 @@ export default function FilterPanel({ sources, onFilterChange, currentFilters }:
             />
           </div>
 
-          {/* מגבלת תוצאות */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              מגבלת תוצאות
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">מגבלת תוצאות</label>
             <input
               type="number"
               value={currentFilters.limit || ''}
@@ -146,7 +128,6 @@ export default function FilterPanel({ sources, onFilterChange, currentFilters }:
             />
           </div>
 
-          {/* כפתור ניקוי */}
           {activeFiltersCount > 0 && (
             <button
               onClick={clearFilters}

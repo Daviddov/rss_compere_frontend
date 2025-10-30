@@ -6,13 +6,14 @@ import { Download, CheckSquare, Square } from 'lucide-react';
 
 interface FetchControlProps {
   sources: string[];
-  onFetch: (selectedSources: string[]) => Promise<void>;
+  onFetch: (selectedSources: string[], withContent: boolean) => Promise<void>;
   isLoading: boolean;
 }
 
 export default function FetchControl({ sources, onFetch, isLoading }: FetchControlProps) {
   const [selectedSources, setSelectedSources] = useState<string[]>(sources);
   const [isOpen, setIsOpen] = useState(false);
+  const [withContent, setWithContent] = useState(true);
 
   const handleToggleSource = (source: string) => {
     if (selectedSources.includes(source)) {
@@ -35,13 +36,13 @@ export default function FetchControl({ sources, onFetch, isLoading }: FetchContr
       alert('❌ יש לבחור לפחות מקור אחד');
       return;
     }
-    await onFetch(selectedSources);
+    await onFetch(selectedSources, withContent);
   };
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-gray-900">בחירת מקורות לשליפה</h3>
+        <h3 className="text-lg font-semibold text-gray-900">שליפת כתבות</h3>
         <button
           onClick={() => setIsOpen(!isOpen)}
           className="text-sm text-blue-600 hover:text-blue-700 font-medium"
@@ -52,7 +53,6 @@ export default function FetchControl({ sources, onFetch, isLoading }: FetchContr
 
       {isOpen && (
         <div className="space-y-4">
-          {/* כפתורי בחירה */}
           <div className="flex gap-2">
             <button
               onClick={handleSelectAll}
@@ -68,7 +68,6 @@ export default function FetchControl({ sources, onFetch, isLoading }: FetchContr
             </button>
           </div>
 
-          {/* רשימת מקורות */}
           <div className="space-y-2 max-h-60 overflow-y-auto">
             {sources.map((source) => (
               <label
@@ -81,34 +80,39 @@ export default function FetchControl({ sources, onFetch, isLoading }: FetchContr
                   onChange={() => handleToggleSource(source)}
                   className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 />
-                <div className="flex-1">
-                  <span className="font-medium text-gray-900">{source}</span>
-                </div>
+                <span className="font-medium text-gray-900">{source}</span>
                 {selectedSources.includes(source) ? (
-                  <CheckSquare className="w-5 h-5 text-blue-600" />
+                  <CheckSquare className="w-4 h-4 text-blue-600 ml-auto" />
                 ) : (
-                  <Square className="w-5 h-5 text-gray-400" />
+                  <Square className="w-4 h-4 text-gray-400 ml-auto" />
                 )}
               </label>
             ))}
           </div>
 
-          {/* סיכום ושליפה */}
-          <div className="pt-4 border-t border-gray-200">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm text-gray-600">
-                נבחרו {selectedSources.length} מתוך {sources.length} מקורות
-              </span>
-            </div>
-            <button
-              onClick={handleFetch}
-              disabled={isLoading || selectedSources.length === 0}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg transition-colors font-medium"
-            >
-              <Download className="w-5 h-5" />
-              {isLoading ? 'שולף כתבות...' : 'שלוף כתבות מהמקורות הנבחרים'}
-            </button>
+          <div className="border-t border-gray-200 pt-4">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={withContent}
+                onChange={(e) => setWithContent(e.target.checked)}
+                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-sm font-medium text-gray-700">שלוף גם תוכן מלא (לוקח יותר זמן)</span>
+            </label>
+            <p className="text-xs text-gray-500 mt-1 mr-6">
+              {withContent ? 'יבצע scraping מלא של כל כתבה' : 'ישלוף רק כותרות וסיכומים'}
+            </p>
           </div>
+
+          <button
+            onClick={handleFetch}
+            disabled={isLoading || selectedSources.length === 0}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors"
+          >
+            <Download className="w-5 h-5" />
+            {isLoading ? 'שולף...' : `שלוף מ-${selectedSources.length} מקורות${withContent ? ' (עם תוכן)' : ''}`}
+          </button>
         </div>
       )}
     </div>

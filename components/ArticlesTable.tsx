@@ -65,117 +65,82 @@ export default function ArticlesTable({ articles, onSelect, selectable = false }
                     type="checkbox"
                     checked={selectedIds.length === articles.length && articles.length > 0}
                     onChange={handleSelectAll}
-                    className="rounded border-gray-300"
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
                 </th>
               )}
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                מקור
-              </th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                כותרת
-              </th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                תאריך פרסום
-              </th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                אורך
-              </th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                סטטוס
-              </th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                פעולות
-              </th>
+              <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900">מקור</th>
+              <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900">כותרת</th>
+              <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900">סטטוס</th>
+              <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900">תאריך</th>
+              <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900">פעולות</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
             {articles.map((article) => (
               <tr key={article.id} className="hover:bg-gray-50 transition-colors">
                 {selectable && (
-                  <td className="px-4 py-4">
+                  <td className="px-4 py-3">
                     <input
                       type="checkbox"
                       checked={selectedIds.includes(article.id)}
                       onChange={() => handleSelectOne(article.id)}
-                      className="rounded border-gray-300"
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
                   </td>
                 )}
-                <td className="px-6 py-4 whitespace-nowrap">
+                <td className="px-4 py-3">
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getSourceBadgeColor(article.source)}`}>
                     {article.source}
                   </span>
                 </td>
-                <td className="px-6 py-4">
-                  <div className="text-sm font-medium text-gray-900 line-clamp-2">
-                    {article.title}
+                <td className="px-4 py-3">
+                  <div className="max-w-md">
+                    <p className="text-sm font-medium text-gray-900 line-clamp-2">{article.title}</p>
+                    {article.summary && (
+                      <p className="text-xs text-gray-500 mt-1 line-clamp-1">{article.summary}</p>
+                    )}
                   </div>
-                  {article.summary && (
-                    <div className="text-xs text-gray-500 mt-1 line-clamp-1">
-                      {article.summary}
-                    </div>
-                  )}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {article.published ? (
-                    <div className="flex items-center gap-1">
-                      <Calendar className="w-3 h-3" />
-                      {format(new Date(article.published), 'dd/MM/yyyy HH:mm')}
-                    </div>
-                  ) : (
-                    <span className="text-gray-400">-</span>
-                  )}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                  {article.stats ? (
-                    <div className="space-y-0.5">
-                      <div className="flex items-center gap-1 text-xs">
-                        <span className="font-medium">כותרת:</span>
-                        <span>{article.stats.titleWords}מ / {article.stats.titleChars}ת</span>
-                      </div>
-                      {article.stats.summaryWords > 0 && (
-                        <div className="flex items-center gap-1 text-xs">
-                          <span className="font-medium">תקציר:</span>
-                          <span>{article.stats.summaryWords}מ / {article.stats.summaryChars}ת</span>
-                        </div>
-                      )}
-                      {article.stats.contentWords > 0 && (
-                        <div className="flex items-center gap-1 text-xs">
-                          <span className="font-medium">תוכן:</span>
-                          <span>{article.stats.contentWords}מ / {article.stats.contentChars}ת</span>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <span className="text-gray-400 text-xs">-</span>
-                  )}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center gap-2">
+                <td className="px-4 py-3">
+                  <div className="flex gap-1">
                     {article.is_new === 1 && (
-                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">
                         <Sparkles className="w-3 h-3" />
                         חדש
                       </span>
                     )}
-                    {article.checked === 1 && (
-                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                    {article.checked === 1 ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
                         <CheckCircle className="w-3 h-3" />
                         נבדק
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                        <X className="w-3 h-3" />
+                        לא נבדק
                       </span>
                     )}
                   </div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm">
+                <td className="px-4 py-3">
+                  {article.published ? (
+                    <div className="flex items-center gap-1 text-xs text-gray-600">
+                      <Calendar className="w-3 h-3" />
+                      {format(new Date(article.published), 'dd/MM/yyyy HH:mm')}
+                    </div>
+                  ) : (
+                    <span className="text-xs text-gray-400">-</span>
+                  )}
+                </td>
+                <td className="px-4 py-3">
                   <a
                     href={article.link}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 transition-colors"
+                    className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800"
                   >
                     <ExternalLink className="w-4 h-4" />
-                    לינק
                   </a>
                 </td>
               </tr>
@@ -183,14 +148,6 @@ export default function ArticlesTable({ articles, onSelect, selectable = false }
           </tbody>
         </table>
       </div>
-      
-      {selectable && selectedIds.length > 0 && (
-        <div className="bg-blue-50 border-t border-blue-200 px-6 py-3">
-          <p className="text-sm text-blue-700">
-            נבחרו {selectedIds.length} כתבות
-          </p>
-        </div>
-      )}
     </div>
   );
 }

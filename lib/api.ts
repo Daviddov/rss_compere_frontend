@@ -30,7 +30,6 @@ export const getArticles = async (filters?: FilterOptions): Promise<Article[]> =
   
   const { data } = await api.get(`/articles?${params.toString()}`);
   
-  // Add stats calculation on client side if not provided by backend
   return data.articles.map((article: Article) => {
     if (!article.stats) {
       article.stats = {
@@ -83,8 +82,12 @@ export const deleteMatches = async (matchIds: number[]): Promise<void> => {
 };
 
 // Operations
-export const fetchArticles = async (sources?: string[]): Promise<void> => {
-  await api.post('/fetch', { sources });
+export const fetchArticles = async (sources?: string[], withContent: boolean = true): Promise<void> => {
+  await api.post('/fetch', { sources, withContent });
+};
+
+export const fetchContentOnly = async (articleIds?: number[]): Promise<void> => {
+  await api.post('/fetch/content-only', { articleIds });
 };
 
 export const runComparison = async (): Promise<ComparisonResult> => {
